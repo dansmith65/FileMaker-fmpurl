@@ -1,0 +1,103 @@
+/***************************************************************************************************
+ * fmpurl ( user ; pass ; host ; file ; script ; param ; variables )
+ *
+ * RETURNS:
+ *	url formatted for the current platform
+ *
+ * PARAMETERS:
+ *	user = (optional) account name to use when opening file
+ *	pass = (optional, unless user is not empty) password for user
+ *	host = (required) IP address, DNS name,
+ *			"~" or "local" or "documents",
+ *			"$" or "open",
+ *			"HostURL" (extract domain name from Get ( FilePath ))
+ *	file = (required) name of database file
+ *	script = (optional, unless param is not empty) script name to run
+ *	param = (optional) parameter to send to script
+ *	variables = (optional) encoded variable string: $var=value&$var2=value%20with%20spaces
+ *		encode like this:
+ *			GetAsURLEncoded ( "$var" ) & "=" & GetAsURLEncoded ( "value" )
+ *			& "&" & GetAsURLEncoded ( "$var2" ) & "=" & GetAsURLEncoded ( "value with spaces" )
+ *
+ * NOTES:
+ *	"HostURL" value in host param is not implemeted, yet
+ *
+ * HISTORY:
+ *	2016-JAN-12 Daniel Smith dansmith65@gmail.com
+ * 		- don't URL encode file name
+ *	2016-JAN-08 Daniel Smith dansmith65@gmail.com
+ *		- created
+ **************************************************************************************************/
+
+
+Case (
+	/* VALIDATE USER AND PASS */
+	IsEmpty ( user ) and not IsEmpty ( pass ) ;
+	"ERROR: user must not be empty if pass is provided" ;
+
+	/* VALIDATE HOST */
+	IsEmpty ( host ) ;
+	"ERROR: host must not be empty" ;
+
+	/* VALIDATE FILE */
+	IsEmpty ( file ) ;
+	"ERROR: file must not be empty" ;
+
+	/* VALIDATE SCRIPT */
+	IsEmpty ( script ) and not IsEmpty ( param ) ;
+	"ERROR: script must not be empty if param is provided" ;
+
+	
+	/* ELSE: PASSED VALIDATION */
+	"fmp://"
+
+		/* USER AND PASS */
+		& If ( not IsEmpty ( user ) ;
+			GetAsURLEncoded ( user )
+		)
+		& If ( not IsEmpty ( user ) and not IsEmpty ( pass ) ;
+			":" & GetAsURLEncoded ( pass )
+		)
+		& If ( not IsEmpty ( user ) or not IsEmpty ( pass ) ;
+			"@"
+		)
+
+		/* HOST */
+		& Case (
+			host = "~" or host = "local" or host = "documents" ;
+			If ( Get ( SystemPlatform ) = 3 /* iOS */ and Get ( SystemVersion ) < 9 ;
+				"%7e" ; /* due to http://thefmkb.com/11358 */
+				"~"
+			) ;
+
+			host = "$" or host = "open" ;
+			If ( Get ( SystemPlatform ) = 3 /* iOS */ and Get ( SystemVersion ) < 9 ;
+				"%24" ; /* due to http://thefmkb.com/11358 */
+				"$"
+			) ;
+
+			host = "HostURL" ;
+			"" ; /* TODO: not implemented, yet */
+
+			/* else, use host param as it-is */
+			host
+		)
+		& If ( Right ( host ; 1 ) ≠ "/" ; "/" )
+
+		/* FILE */
+		& file
+
+		/* SCRIPT AND PARAM*/
+		& If ( not IsEmpty ( script ) ;
+			"?script=" & GetAsURLEncoded ( script )
+			& If ( not IsEmpty ( param ) ;
+				"&param=" & GetAsURLEncoded ( param )
+			)
+		)
+
+		/* VARIABLES */
+		& If ( not IsEmpty ( variables ) ;
+			If ( Left ( variables ; 1 ) ≠ "&" ; "&" )
+			& variables
+		)
+)
