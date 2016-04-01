@@ -19,46 +19,28 @@
  *			GetAsURLEncoded ( "$var" ) & "=" & GetAsURLEncoded ( "value" )
  *			& "&" & GetAsURLEncoded ( "$var2" ) & "=" & GetAsURLEncoded ( "value with spaces" )
  *
- * NOTES:
- *	"HostURL" value in host param is not implemeted, yet
- *
  * HISTORY:
  *	2016-MAR-31 Daniel Smith dan@filemaker.consulting
+ *		- refactor to use Let instead of Case form main logic flow
  *		- error if variables but no script
+ *		- return multi-line error message, listing all the errors
+ *		- add support for HostURL value as host parameter
  *	2016-JAN-12 Daniel Smith dansmith65@gmail.com
  * 		- don't URL encode file name
  *	2016-JAN-08 Daniel Smith dansmith65@gmail.com
  *		- created
  **************************************************************************************************/
 
+Let ( [
+	url = "fmp://" ;
 
-Case (
-	/* VALIDATE USER AND PASS */
-	IsEmpty ( user ) and not IsEmpty ( pass ) ;
-	"ERROR: user must not be empty if pass is provided" ;
-
-	/* VALIDATE HOST */
-	IsEmpty ( host ) ;
-	"ERROR: host must not be empty" ;
-
-	/* VALIDATE FILE */
-	IsEmpty ( file ) ;
-	"ERROR: file must not be empty" ;
-
-	/* VALIDATE SCRIPT */
-	IsEmpty ( script ) and not IsEmpty ( param ) ;
-	"ERROR: script must not be empty if param is provided" ;
-
-	/* VALIDATE VARIABLES */
-	IsEmpty ( script ) and not IsEmpty ( variables ) ;
-	"ERROR: script must not be empty if variables is provided" ;
-
-	
-	/* ELSE: PASSED VALIDATION */
-	"fmp://"
-
-		/* USER AND PASS */
-		& If ( not IsEmpty ( user ) ;
+	/* USER AND PASS */
+	errorMessage =
+		If ( IsEmpty ( user ) and not IsEmpty ( pass ) ;
+			"ERROR: user must not be empty if pass is provided"
+		) ;
+	url = url &
+		If ( not IsEmpty ( user ) ;
 			GetAsURLEncoded ( user )
 		)
 		& If ( not IsEmpty ( user ) and not IsEmpty ( pass ) ;
@@ -66,10 +48,17 @@ Case (
 		)
 		& If ( not IsEmpty ( user ) or not IsEmpty ( pass ) ;
 			"@"
-		)
+		) ;
 
-		/* HOST */
-		& Case (
+
+	/* HOST */
+	errorMessage = List ( errorMessage ; 
+		If ( IsEmpty ( host ) ;
+			"ERROR: host must not be empty"
+		)
+	) ;
+	segment =
+		Case (
 			host = "~" or host = "local" or host = "documents" ;
 			If ( Get ( SystemPlatform ) = 3 /* iOS */ and Get ( SystemVersion ) < 9 ;
 				"%7e" ; /* due to http://thefmkb.com/11358 */
@@ -83,18 +72,54 @@ Case (
 			) ;
 
 			host = "HostURL" ;
-			"" ; /* TODO: not implemented, yet */
+			Let ( [
+				filePath = Get ( FilePath ) ;
+				start = Position ( filePath ; "/" ;1 ; 1 ) ;
+				start = If ( start ; start + 1 ; start ) ;
+				end = If ( start ;
+					Position ( filePath ; "/" ; start ; 1 ) - 1 
+				)
+			] ;
+				If ( start and Left ( filePath ; 7 ) = "fmnet:/" ;
+					Middle ( filePath ; start ; end - start + 1 ) ;
+					"ERROR: HostURL could not be extracted"
+				)
+			) ;
 
 			/* else, use host param as it-is */
 			host
+		) ;
+	errorMessage = List ( errorMessage ; 
+		If ( Left ( segment ; 5 ) = "ERROR" ;
+			segment
 		)
-		& If ( Right ( host ; 1 ) ≠ "/" ; "/" )
+	) ;
+	segment = segment & If ( Right ( segment ; 1 ) ≠ "/" ; "/" ) ;
+	url = url & segment ;
 
-		/* FILE */
-		& file
 
-		/* SCRIPT */
-		& If ( not IsEmpty ( script ) ;
+	/* FILE */
+	errorMessage = List ( errorMessage ; 
+		If ( IsEmpty ( file ) ;
+			"ERROR: file must not be empty"
+		)
+	) ;
+	url = url & file ;
+
+
+	/* SCRIPT */
+	errorMessage = List ( errorMessage ; 
+		If ( IsEmpty ( script ) and not IsEmpty ( param ) ;
+			"ERROR: script must not be empty if param is provided"
+		)
+	) ;
+	errorMessage = List ( errorMessage ; 
+		If ( IsEmpty ( script ) and not IsEmpty ( variables ) ;
+			"ERROR: script must not be empty if variables is provided"
+		)
+	) ;
+	url = url &
+		If ( not IsEmpty ( script ) ;
 			"?script=" & GetAsURLEncoded ( script )
 			
 			/* PARAM*/
@@ -108,4 +133,8 @@ Case (
 				& variables
 			)
 		)
+] ;
+
+	If ( not IsEmpty ( errorMessage ) ; errorMessage ; url )
+
 )
