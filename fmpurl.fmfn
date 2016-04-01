@@ -23,6 +23,8 @@
  *	"HostURL" value in host param is not implemeted, yet
  *
  * HISTORY:
+ *	2016-MAR-31 Daniel Smith dan@filemaker.consulting
+ *		- error if variables but no script
  *	2016-JAN-12 Daniel Smith dansmith65@gmail.com
  * 		- don't URL encode file name
  *	2016-JAN-08 Daniel Smith dansmith65@gmail.com
@@ -46,6 +48,10 @@ Case (
 	/* VALIDATE SCRIPT */
 	IsEmpty ( script ) and not IsEmpty ( param ) ;
 	"ERROR: script must not be empty if param is provided" ;
+
+	/* VALIDATE VARIABLES */
+	IsEmpty ( script ) and not IsEmpty ( variables ) ;
+	"ERROR: script must not be empty if variables is provided" ;
 
 	
 	/* ELSE: PASSED VALIDATION */
@@ -87,17 +93,19 @@ Case (
 		/* FILE */
 		& file
 
-		/* SCRIPT AND PARAM*/
+		/* SCRIPT */
 		& If ( not IsEmpty ( script ) ;
 			"?script=" & GetAsURLEncoded ( script )
+			
+			/* PARAM*/
 			& If ( not IsEmpty ( param ) ;
 				"&param=" & GetAsURLEncoded ( param )
 			)
-		)
 
-		/* VARIABLES */
-		& If ( not IsEmpty ( variables ) ;
-			If ( Left ( variables ; 1 ) ≠ "&" ; "&" )
-			& variables
+			/* VARIABLES */
+			& If ( not IsEmpty ( variables ) ;
+				If ( Left ( variables ; 1 ) ≠ "&" ; "&" )
+				& variables
+			)
 		)
 )
