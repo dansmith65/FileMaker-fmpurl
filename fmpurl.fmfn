@@ -29,6 +29,10 @@
  * 		- don't URL encode file name
  *	2016-JAN-08 Daniel Smith dansmith65@gmail.com
  *		- created
+ *
+ * REFERENCE:
+ *	http://www.modularfilemaker.org/module/fmpurl/
+ *	https://github.com/dansmith65/FileMaker-fmpurl
  **************************************************************************************************/
 
 Let ( [
