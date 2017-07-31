@@ -16,12 +16,16 @@
  *	param = (optional) parameter to send to script
  *	variables = (optional) encoded variable string: $var=value&$var2=value%20with%20spaces
  *		encode like this:
- *			GetAsURLEncoded ( "$var" ) & "=" & GetAsURLEncoded ( "value" )
- *			& "&" & GetAsURLEncoded ( "$var2" ) & "=" & GetAsURLEncoded ( "value with spaces" )
+ *			"$var=" & GetAsURLEncoded ( "value" )
+ *			& "&$var2=" & GetAsURLEncoded ( "value with spaces" )
  *
  * HISTORY:
+ *	2017-JUL-31 Daniel Smith dan@filemaker.consulting
+ *		- bug fix in testing system version: it incorrectly detected iOS 10 as < 9
+ *		- don't URLEncoded user/pass
+ *		- updated documentation to reflect that variable name does not need to be URLEncoded
  *	2016-MAR-31 Daniel Smith dan@filemaker.consulting
- *		- refactor to use Let instead of Case form main logic flow
+ *		- refactor to use Let instead of Case for main logic flow
  *		- error if variables but no script
  *		- return multi-line error message, listing all the errors
  *		- add support for HostURL value as host parameter
@@ -45,10 +49,10 @@ Let ( [
 		) ;
 	url = url &
 		If ( not IsEmpty ( user ) ;
-			GetAsURLEncoded ( user )
+			user
 		)
 		& If ( not IsEmpty ( user ) and not IsEmpty ( pass ) ;
-			":" & GetAsURLEncoded ( pass )
+			":" & pass
 		)
 		& If ( not IsEmpty ( user ) or not IsEmpty ( pass ) ;
 			"@"
@@ -64,13 +68,13 @@ Let ( [
 	segment =
 		Case (
 			host = "~" or host = "local" or host = "documents" ;
-			If ( Get ( SystemPlatform ) = 3 /* iOS */ and Get ( SystemVersion ) < 9 ;
+			If ( Get ( SystemPlatform ) = 3 /* iOS */ and GetAsNumber ( Get ( SystemVersion ) ) < 9 ;
 				"%7e" ; /* due to http://thefmkb.com/11358 */
 				"~"
 			) ;
 
 			host = "$" or host = "open" ;
-			If ( Get ( SystemPlatform ) = 3 /* iOS */ and Get ( SystemVersion ) < 9 ;
+			If ( Get ( SystemPlatform ) = 3 /* iOS */ and GetAsNumber ( Get ( SystemVersion ) ) < 9 ;
 				"%24" ; /* due to http://thefmkb.com/11358 */
 				"$"
 			) ;
@@ -90,7 +94,7 @@ Let ( [
 				)
 			) ;
 
-			/* else, use host param as it-is */
+			/* else, use host param as-is */
 			host
 		) ;
 	errorMessage = List ( errorMessage ; 
